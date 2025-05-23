@@ -1,0 +1,64 @@
+CREATE OR ALTER TRIGGER trg_MediaNotasPercFreqCalculos
+ON MATRICULA
+FOR UPDATE
+AS
+BEGIN
+    
+
+    DECLARE @TOTALPONTOS FLOAT;
+    DECLARE @TOTALFALTAS FLOAT;
+    DECLARE @MEDIANOTAS FLOAT;
+    DECLARE @PERCFREQ FLOAT;
+    DECLARE @MATRICULA INT;
+    DECLARE @MATERIA CHAR(3);
+    DECLARE @PERLETIVO INT;
+    DECLARE @N1 INT;
+    DECLARE @N2 INT;
+    DECLARE @N3 INT;
+    DECLARE @N4 INT;
+    DECLARE @CARGAHORARIA FLOAT;
+    DECLARE @NOTAEXAME FLOAT;
+
+    SELECT 
+        @N1 = N1, @N2 = N2, @N3 = N3, @N4 = N4,
+        @TOTALFALTAS = ISNULL(F1,0) + ISNULL(F2,0) + ISNULL(F3,0) + ISNULL(F4,0),
+        @MATRICULA = MATRICULA,
+        @MATERIA = MATERIA,
+        @PERLETIVO = PERLETIVO,
+        @NOTAEXAME = NOTAEXAME
+    FROM inserted;
+
+    SELECT 
+        @CARGAHORARIA = CARGAHORARIA
+    FROM MATERIAS
+    WHERE SIGLA = @MATERIA;
+
+    IF @N1 IS NOT NULL AND @N2 IS NOT NULL AND @N3 IS NOT NULL AND @N4 IS NOT NULL AND @NOTAEXAME IS NULL
+    BEGIN
+
+        SELECT @TOTALPONTOS = SUM(N1 + N2 + N3 + N4),
+               @MEDIANOTAS = @totalPontos / 4,
+               @TOTALFALTAS = SUM(F1 + F2 + F3 + F4),
+               @PERCFREQ = (1 - (@TOTALFALTAS / @CARGAHORARIA)) * 100
+        FROM inserted
+
+
+        UPDATE MATRICULA 
+        SET 
+            TOTALPONTOS = @TOTALPONTOS,
+            MEDIA = @MEDIANOTAS,
+            TOTALFALTAS = @TOTALFALTAS,
+            PERCFREQ = @PERCFREQ
+        WHERE
+            MATRICULA = @MATRICULA AND
+            MATERIA = @MATERIA AND
+            PERLETIVO = @PERLETIVO
+        
+        EXEC sp_ResultadoFinal @MATRICULA = @MATRICULA,
+                               @MATERIA = @MATERIA,
+                               @PERLETIVO = @PERLETIVO,
+                               @EXAME = 0
+
+                               
+    END
+END
